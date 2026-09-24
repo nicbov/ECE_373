@@ -1,1 +1,1 @@
-Readme for ECE373:
+ReadMe for ECE373:
