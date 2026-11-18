@@ -1,4 +1,4 @@
-package CommandPalette;
+package CommandPalette.src.main.java.edu.arizona.ece373.CommandPalette;
 import java.util.regex.*;
 
 public class Command{
@@ -16,7 +16,7 @@ public class Command{
     }
 
     public Command(){
-        //this.Command(-1, "", "", "");
+        this(-1, "", "", "");
     }
 
     public void CompileCommand(){
