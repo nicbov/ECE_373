@@ -1,4 +1,4 @@
-package CommandPalette.src.main.java.edu.arizona.ece373.CommandPalette;
+package edu.arizona.ece373.CommandPalette;
 import java.util.regex.*;
 
 public class Command{
@@ -43,8 +43,8 @@ public class Command{
         return index;
     }
 
-    public String GetContents(){
-        return uncompiledContents;
+    public Pattern GetContents(){
+        return contents;
     }
 
     public String GetName(){
