@@ -2,23 +2,24 @@ package text_editor;
 
 import java.util.ArrayList;
 import java.util.List;
+import presentation.DocumentReadView;
 
 /** finds visible text without changing the document */
 public final class SearchService {
 
-    public List<SearchMatch> findSubstring(DocumentTraversal document, String query) {
+    public List<SearchMatch> findSubstring(DocumentReadView document, String query) {
         // false means the query can be inside another word
         return find(document, query, false);
     }
 
-    public List<SearchMatch> findWholeWord(DocumentTraversal document, String query) {
+    public List<SearchMatch> findWholeWord(DocumentReadView document, String query) {
         // true means both sides of the query must be word boundaries
         return find(document, query, true);
     }
 
     // both public search methods use this shared search loop
     private List<SearchMatch> find(
-            DocumentTraversal document,
+            DocumentReadView document,
             String query,
             boolean wholeWord) {
         // reject missing input before doing any work
@@ -31,8 +32,8 @@ public final class SearchService {
         int blockIndex = 0;
 
         // search each block in the order provided by the document
-        for (DocumentTraversal.Block block : document.blocksInOrder()) {
-            String text = block.visibleText();
+        for (DocumentReadView.Block block : document.blocksInOrder()) {
+            String text = visibleText(block);
 
             // each new block starts searching at its first character
             int searchFrom = 0;
@@ -53,7 +54,8 @@ public final class SearchService {
                 if (!wholeWord || hasWordBoundaries(text, start, end)) {
                     matches.add(new SearchMatch(
                             blockIndex,
-                            block.type(),
+                            block.id(),
+                            block.kind(),
                             start,
                             end,
                             text.substring(start, end)));
@@ -70,6 +72,17 @@ public final class SearchService {
         return List.copyOf(matches);
     }
 
+    private String visibleText(DocumentReadView.Block block) {
+        StringBuilder text = new StringBuilder();
+
+        // joining runs lets matches cross formatting boundaries
+        for (DocumentReadView.TextRun run : block.runs()) {
+            text.append(run.text());
+        }
+
+        return text.toString();
+    }
+
     private boolean hasWordBoundaries(String text, int start, int end) {
         // the start is valid at the beginning or after a nonword character
         boolean startsWord = start == 0 || !isWordCharacter(text.charAt(start - 1));
@@ -84,10 +97,10 @@ public final class SearchService {
         return Character.isLetterOrDigit(character) || character == '_';
     }
 
-    private void validate(DocumentTraversal document, String query) {
+    private void validate(DocumentReadView document, String query) {
         // searching requires a document and at least one search character
         if (document == null) {
-            throw new IllegalArgumentException("Document traversal is required.");
+            throw new IllegalArgumentException("Document view is required.");
         }
         if (query == null || query.isEmpty()) {
             throw new IllegalArgumentException("Search text is required.");

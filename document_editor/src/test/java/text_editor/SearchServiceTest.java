@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import presentation.DocumentReadView;
 
 class SearchServiceTest {
 
@@ -12,17 +13,18 @@ class SearchServiceTest {
 
     @Test
     void substringSearchFindsMatchesInDocumentOrder() {
-        DocumentTraversal document = document(
-                block(DocumentTraversal.BlockType.TITLE, "Testing"),
-                block(DocumentTraversal.BlockType.PARAGRAPH, "test testing test"),
-                block(DocumentTraversal.BlockType.PARAGRAPH, "no match"));
+        DocumentReadView document = document(
+                block("1", DocumentReadView.Kind.TITLE, "Testing"),
+                block("1#1", DocumentReadView.Kind.PARAGRAPH, "test testing test"),
+                block("1#2", DocumentReadView.Kind.PARAGRAPH, "no match"));
 
         List<SearchMatch> matches = search.findSubstring(document, "test");
 
         assertEquals(3, matches.size());
         assertEquals(new SearchMatch(
                 1,
-                DocumentTraversal.BlockType.PARAGRAPH,
+                "1#1",
+                DocumentReadView.Kind.PARAGRAPH,
                 0,
                 4,
                 "test"), matches.get(0));
@@ -32,8 +34,8 @@ class SearchServiceTest {
 
     @Test
     void wholeWordSearchSkipsTextInsideLargerWords() {
-        DocumentTraversal document = document(
-                block(DocumentTraversal.BlockType.PARAGRAPH, "test testing test_test test."));
+        DocumentReadView document = document(
+                block("1#1", DocumentReadView.Kind.PARAGRAPH, "test testing test_test test."));
 
         List<SearchMatch> matches = search.findWholeWord(document, "test");
 
@@ -44,15 +46,39 @@ class SearchServiceTest {
 
     @Test
     void searchIncludesTitlesAndParagraphs() {
-        DocumentTraversal document = document(
-                block(DocumentTraversal.BlockType.TITLE, "hello"),
-                block(DocumentTraversal.BlockType.PARAGRAPH, "hello"));
+        DocumentReadView document = document(
+                block("1", DocumentReadView.Kind.TITLE, "hello"),
+                block("1#1", DocumentReadView.Kind.PARAGRAPH, "hello"));
 
         List<SearchMatch> matches = search.findWholeWord(document, "hello");
 
         assertEquals(2, matches.size());
-        assertEquals(DocumentTraversal.BlockType.TITLE, matches.get(0).blockType());
-        assertEquals(DocumentTraversal.BlockType.PARAGRAPH, matches.get(1).blockType());
+        assertEquals(DocumentReadView.Kind.TITLE, matches.get(0).blockKind());
+        assertEquals(DocumentReadView.Kind.PARAGRAPH, matches.get(1).blockKind());
+        assertEquals("1#1", matches.get(1).blockId());
+    }
+
+    @Test
+    void searchCanMatchAcrossFormattingRuns() {
+        DocumentReadView.Block paragraph = new DocumentReadView.Block(
+                "1#1",
+                DocumentReadView.Kind.PARAGRAPH,
+                List.of(
+                        new DocumentReadView.TextRun("for"),
+                        new DocumentReadView.TextRun(
+                                "matted",
+                                true,
+                                false,
+                                null,
+                                null,
+                                null)));
+
+        List<SearchMatch> matches = search.findWholeWord(
+                document(paragraph),
+                "formatted");
+
+        assertEquals(1, matches.size());
+        assertEquals("1#1", matches.get(0).blockId());
     }
 
     @Test
@@ -62,13 +88,17 @@ class SearchServiceTest {
                 () -> search.findSubstring(document(), ""));
     }
 
-    private DocumentTraversal document(DocumentTraversal.Block... blocks) {
+    private DocumentReadView document(DocumentReadView.Block... blocks) {
         return () -> List.of(blocks);
     }
 
-    private DocumentTraversal.Block block(
-            DocumentTraversal.BlockType type,
+    private DocumentReadView.Block block(
+            String id,
+            DocumentReadView.Kind kind,
             String text) {
-        return new DocumentTraversal.Block(type, text);
+        return new DocumentReadView.Block(
+                id,
+                kind,
+                List.of(new DocumentReadView.TextRun(text)));
     }
 }

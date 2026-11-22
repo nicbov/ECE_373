@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import presentation.DocumentReadView;
 
 class StatisticsServiceTest {
 
@@ -13,18 +14,18 @@ class StatisticsServiceTest {
 
     @Test
     void emptyDocumentHasZeroCounts() {
-        DocumentTraversal document = List::<DocumentTraversal.Block>of;
+        DocumentReadView document = List::<DocumentReadView.Block>of;
 
         assertEquals(new DocumentStatistics(0, 0, 0), statistics.calculate(document));
     }
 
     @Test
     void countsVisibleTitlesAndParagraphsInTraversalOrder() {
-        DocumentTraversal document = () -> List.of(
-                new DocumentTraversal.Block(DocumentTraversal.BlockType.TITLE, "First Section"),
-                new DocumentTraversal.Block(DocumentTraversal.BlockType.PARAGRAPH, "Hello world."),
-                new DocumentTraversal.Block(DocumentTraversal.BlockType.TITLE, "Nested"),
-                new DocumentTraversal.Block(DocumentTraversal.BlockType.PARAGRAPH, "More text here"));
+        DocumentReadView document = () -> List.of(
+                block(DocumentReadView.Kind.TITLE, "First Section"),
+                block(DocumentReadView.Kind.PARAGRAPH, "Hello world."),
+                block(DocumentReadView.Kind.TITLE, "Nested"),
+                block(DocumentReadView.Kind.PARAGRAPH, "More text here"));
 
         assertEquals(new DocumentStatistics(8, 45, 2), statistics.calculate(document));
     }
@@ -32,8 +33,8 @@ class StatisticsServiceTest {
     @Test
     void countsWordsSeparatedByDifferentWhitespace() {
         String text = "one  two\tthree\nfour";
-        DocumentTraversal document = () -> List.of(
-                new DocumentTraversal.Block(DocumentTraversal.BlockType.PARAGRAPH, text));
+        DocumentReadView document = () -> List.of(
+                block(DocumentReadView.Kind.PARAGRAPH, text));
 
         DocumentStatistics result = statistics.calculate(document);
 
@@ -44,36 +45,50 @@ class StatisticsServiceTest {
 
     @Test
     void emptyParagraphsStillCountAsParagraphs() {
-        DocumentTraversal document = () -> List.of(
-                new DocumentTraversal.Block(DocumentTraversal.BlockType.PARAGRAPH, ""),
-                new DocumentTraversal.Block(DocumentTraversal.BlockType.PARAGRAPH, ""));
+        DocumentReadView document = () -> List.of(
+                block(DocumentReadView.Kind.PARAGRAPH, ""),
+                block(DocumentReadView.Kind.PARAGRAPH, ""));
 
         assertEquals(new DocumentStatistics(0, 0, 2), statistics.calculate(document));
     }
 
     @Test
     void calculatesAgainFromTheCurrentDocumentState() {
-        List<DocumentTraversal.Block> blocks = new ArrayList<>();
-        blocks.add(new DocumentTraversal.Block(
-                DocumentTraversal.BlockType.PARAGRAPH,
-                "first version"));
-        DocumentTraversal document = () -> blocks;
+        List<DocumentReadView.Block> blocks = new ArrayList<>();
+        blocks.add(block(DocumentReadView.Kind.PARAGRAPH, "first version"));
+        DocumentReadView document = () -> blocks;
 
         assertEquals(new DocumentStatistics(2, 13, 1), statistics.calculate(document));
 
         // this acts like the document changed after an edit or restore
-        blocks.set(0, new DocumentTraversal.Block(
-                DocumentTraversal.BlockType.PARAGRAPH,
-                "new current version"));
+        blocks.set(0, block(DocumentReadView.Kind.PARAGRAPH, "new current version"));
 
         assertEquals(new DocumentStatistics(3, 19, 1), statistics.calculate(document));
     }
 
     @Test
+    void formattingRunsDoNotSplitOneVisibleWord() {
+        DocumentReadView.Block paragraph = new DocumentReadView.Block(
+                DocumentReadView.Kind.PARAGRAPH,
+                List.of(
+                        new DocumentReadView.TextRun("for"),
+                        new DocumentReadView.TextRun(
+                                "matted",
+                                true,
+                                false,
+                                null,
+                                null,
+                                null)));
+        DocumentReadView document = () -> List.of(paragraph);
+
+        assertEquals(new DocumentStatistics(1, 9, 1), statistics.calculate(document));
+    }
+
+    @Test
     void handlesTheRequiredDocumentSize() {
         String text = "a".repeat(100_000);
-        DocumentTraversal document = () -> List.of(
-                new DocumentTraversal.Block(DocumentTraversal.BlockType.PARAGRAPH, text));
+        DocumentReadView document = () -> List.of(
+                block(DocumentReadView.Kind.PARAGRAPH, text));
 
         assertEquals(
                 new DocumentStatistics(1, 100_000, 1),
@@ -83,5 +98,11 @@ class StatisticsServiceTest {
     @Test
     void missingDocumentIsRejected() {
         assertThrows(IllegalArgumentException.class, () -> statistics.calculate(null));
+    }
+
+    private DocumentReadView.Block block(DocumentReadView.Kind kind, String text) {
+        return new DocumentReadView.Block(
+                kind,
+                List.of(new DocumentReadView.TextRun(text)));
     }
 }
