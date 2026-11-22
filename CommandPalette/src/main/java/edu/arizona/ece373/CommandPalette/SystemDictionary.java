@@ -7,8 +7,18 @@ public final class SystemDictionary extends CommandDictionary{
     private Map<String, Command> supportedCommands = Map.ofEntries(Map.entry("", new Command()));
     private int commandCount;
 
-    public Command GetCommand(String name){
+    public Command Get(String name){
         return supportedCommands.get(name);
+    }
+
+    public boolean Contains(String name){
+        Command found = supportedCommands.get(name);
+        if(found != null){
+            if(found.GetName().equals(name)){
+                return true;
+            }
+        }
+        return false;
     }
 
     public String ListCommandFormat(String name){
