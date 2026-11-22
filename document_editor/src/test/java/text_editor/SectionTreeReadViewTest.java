@@ -47,6 +47,34 @@ class SectionTreeReadViewTest {
         assertEquals("2#1", matches.get(1).blockId());
     }
 
+    @Test
+    void convertsEliasFormattingTagsIntoSharedTextRuns() {
+        SectionTree tree = new SectionTree();
+        Section section = new Section("Title");
+        section.appendParagraph(new Paragraph("<B*for*B><C:blue*matted*C> text"));
+        tree.addSection(section);
+
+        DocumentReadView document = new SectionTreeReadView(tree);
+        List<DocumentReadView.Block> blocks = new ArrayList<>();
+        document.blocksInOrder().forEach(blocks::add);
+
+        List<DocumentReadView.TextRun> runs = blocks.get(1).runs();
+        assertEquals(3, runs.size());
+        assertEquals("for", runs.get(0).text());
+        assertEquals(true, runs.get(0).bold());
+        assertEquals("matted", runs.get(1).text());
+        assertEquals("blue", runs.get(1).color());
+        assertEquals(" text", runs.get(2).text());
+
+        SearchService search = new SearchService();
+        assertEquals(1, search.findWholeWord(document, "formatted").size());
+
+        StatisticsService statistics = new StatisticsService();
+        assertEquals(
+                new DocumentStatistics(3, 19, 1),
+                statistics.calculate(document));
+    }
+
     private void assertBlock(
             DocumentReadView.Block block,
             String id,
