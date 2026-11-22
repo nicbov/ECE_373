@@ -21,6 +21,7 @@ public class Document {
 
     private final DocumentFileService fileService;
     private final StackHistoryService historyService;
+        private final SectionTree sectionTree; // exactly one per document, never replaced
 
     /** Creates a brand new document and both of its files in the given folder. */
     public static Document create(String name, Path directory) {
@@ -52,6 +53,7 @@ public class Document {
         this.pathHistory = historyFile.toString();
         this.fileService = new DocumentFileService(documentFile);
         this.historyService = new StackHistoryService(historyFile);
+        this.sectionTree = new SectionTree();
         this.createdAt = Instant.now();
         this.lastModified = this.createdAt;
     }
@@ -71,6 +73,9 @@ public class Document {
     public DocumentFileService getFileService() { return fileService; }
 
     public StackHistoryService getHistoryService() { return historyService; }
+
+    /** The document's one and only section tree. It always exists and cannot be replaced. */
+    public SectionTree getSectionTree() { return sectionTree; }
 
     @Override
     public String toString() {
