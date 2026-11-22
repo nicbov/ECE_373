@@ -55,4 +55,8 @@ public class Command{
         return arguments;
     }
 
+    public String GetFormat(){
+        throw new UnsupportedOperationException();
+    }
+
 }
