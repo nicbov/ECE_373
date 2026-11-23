@@ -21,7 +21,7 @@ public class Document {
 
     private final DocumentFileService fileService;
     private final StackHistoryService historyService;
-        private final SectionTree sectionTree; // exactly one per document, never replaced
+    private final SectionTree sectionTree; // exactly one per document, never replaced
 
     /** Creates a brand new document and both of its files in the given folder. */
     public static Document create(String name, Path directory) {
@@ -37,6 +37,7 @@ public class Document {
         if (!doc.fileService.exists()) {
             throw new IllegalArgumentException("No document named '" + name + "' in " + directory);
         }
+        doc.sectionTree.replaceWith(DocumentMarkupCodec.decode(doc.fileService.load()));
         doc.historyService.create(); // no-op if the history file already exists
         doc.historyService.load();
         return doc;

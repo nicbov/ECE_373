@@ -5,6 +5,7 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 
 /**
@@ -52,12 +53,41 @@ public class DocumentFileService {
 
     /** Overwrites the document file with the given raw text. */
     public void save(String content) {
+        Path absolutePath = documentPath.toAbsolutePath();
+        Path parent = absolutePath.getParent();
+        Path temporaryPath = null;
         try {
-            Files.writeString(documentPath, content, StandardCharsets.UTF_8,
-                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            String prefix = temporaryPrefix(documentPath);
+            if (parent == null) {
+                temporaryPath = Files.createTempFile(
+                        prefix, ".tmp");
+            } else {
+                Files.createDirectories(parent);
+                temporaryPath = Files.createTempFile(parent, prefix, ".tmp");
+            }
+            Files.writeString(temporaryPath, content, StandardCharsets.UTF_8,
+                    StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
+            try {
+                Files.move(temporaryPath, absolutePath,
+                        StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+                Files.move(temporaryPath, absolutePath, StandardCopyOption.REPLACE_EXISTING);
+            }
         } catch (IOException e) {
+            if (temporaryPath != null) {
+                try {
+                    Files.deleteIfExists(temporaryPath);
+                } catch (IOException cleanupFailure) {
+                    e.addSuppressed(cleanupFailure);
+                }
+            }
             throw new UncheckedIOException("Could not write document file: " + documentPath, e);
         }
+    }
+
+    private static String temporaryPrefix(Path path) {
+        String prefix = path.getFileName().toString();
+        return prefix.length() >= 3 ? prefix : (prefix + "___").substring(0, 3);
     }
 
     public void delete() {

@@ -135,6 +135,19 @@ public class SectionTree {
         }
     }
 
+    void replaceWith(SectionTree source) {
+        if (source == null) {
+            throw new IllegalArgumentException("Section tree is required.");
+        }
+        if (source == this) {
+            return;
+        }
+        mainSectionArray.clear();
+        mainSectionArray.addAll(source.mainSectionArray);
+        relabelMain();
+        recalculateLocations();
+    }
+
     private void relabelMain() {
         for (int i = 0; i < mainSectionArray.size(); i++) {
             mainSectionArray.get(i).assignLabel(String.valueOf(i + 1));

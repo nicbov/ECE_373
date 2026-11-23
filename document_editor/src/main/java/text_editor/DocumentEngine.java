@@ -71,6 +71,11 @@ public final class DocumentEngine {
         return document;
     }
 
+    /** Returns the editing facade for the current document. */
+    public TextEditService getTextEditService() {
+        return new TextEditService(getDocument());
+    }
+
     public Map<String, Document> getOpenDocuments() {
         return Collections.unmodifiableMap(documents);
     }
