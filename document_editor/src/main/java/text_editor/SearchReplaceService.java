@@ -21,6 +21,18 @@ public final class SearchReplaceService {
         return replaceFirst(document, query, replacement, true);
     }
 
+    // returns how many substring matches were replaced
+    public int replaceAllSubstring(
+            Document document, String query, String replacement) {
+        return replaceAll(document, query, replacement, false);
+    }
+
+    // returns how many complete word matches were replaced
+    public int replaceAllWholeWord(
+            Document document, String query, String replacement) {
+        return replaceAll(document, query, replacement, true);
+    }
+
     private boolean replaceFirst(
             Document document,
             String query,
@@ -64,5 +76,33 @@ public final class SearchReplaceService {
 
         // true tells the caller one replacement was saved
         return true;
+    }
+
+    private int replaceAll(
+            Document document,
+            String query,
+            String replacement,
+            boolean wholeWord) {
+        if (document == null || replacement == null) {
+            throw new IllegalArgumentException("Document and replacement text are required.");
+        }
+
+        // search once so every position refers to the same document version
+        SectionTreeReadView view = new SectionTreeReadView(document.getSectionTree());
+        List<SearchMatch> matches = wholeWord
+                ? search.findWholeWord(view, query)
+                : search.findSubstring(view, query);
+
+        // no matches means there is nothing to save or add to history
+        if (matches.isEmpty()) {
+            return 0;
+        }
+
+        // the edit service applies the full list as one saved change
+        TextEditService edits = new TextEditService(document);
+        edits.replaceMatches(matches, replacement);
+
+        // callers can show the number of changed matches
+        return matches.size();
     }
 }
