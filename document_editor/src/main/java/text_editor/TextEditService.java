@@ -29,7 +29,7 @@ public final class TextEditService {
         this.formatEditor = formatEditor;
     }
 
-    /** Inserts visible, unformatted text at a paragraph-relative position. */
+    /** inserts visible text using formatting active at the raw insertion point */
     public void addText(String paragraphId, int position, String text) {
         if (text == null) {
             throw new IllegalArgumentException("Text is required.");
@@ -43,6 +43,14 @@ public final class TextEditService {
     /** Removes visible text from the paragraph-relative range [start, end). */
     public void removeText(String paragraphId, int start, int end) {
         editParagraph(paragraphId, raw -> removeVisible(raw, start, end));
+    }
+
+    /** replaces one visible range as one saved and undoable edit */
+    public void replaceText(String paragraphId, int start, int end, String text) {
+        if (text == null) {
+            throw new IllegalArgumentException("Text is required.");
+        }
+        editParagraph(paragraphId, raw -> replaceVisible(raw, start, end, text));
     }
 
     public void addFormat(
@@ -251,6 +259,12 @@ public final class TextEditService {
             visibleStart = tokenEnd;
         }
         return result.toString();
+    }
+
+    private static String replaceVisible(String raw, int start, int end, String text) {
+        // removal validates the complete range before insertion happens
+        String withoutRange = removeVisible(raw, start, end);
+        return insertVisible(withoutRange, start, text);
     }
 
     private static Patch createPatch(String before, String after) {
