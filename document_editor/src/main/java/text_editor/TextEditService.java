@@ -181,6 +181,56 @@ public final class TextEditService {
         });
     }
 
+    // splits one paragraph and returns the id of the new right paragraph
+    public String splitParagraph(String paragraphId, int position) {
+        SectionTree candidate = currentTreeCopy();
+        Paragraph paragraph = requireParagraph(candidate, paragraphId);
+        List<StyledText> runs = styledText(paragraph.getText());
+        int length = styledLength(runs);
+        if (position < 0 || position > length) {
+            throw invalidPosition(position, length);
+        }
+
+        int hash = paragraphId.lastIndexOf('#');
+        String sectionId = paragraphId.substring(0, hash);
+        int paragraphPosition = Integer.parseInt(paragraphId.substring(hash + 1));
+        paragraph.setText(encodeStyled(sliceStyled(runs, 0, position)));
+        Paragraph rightParagraph = new Paragraph(
+                encodeStyled(sliceStyled(runs, position, length)));
+
+        // elias's tree helper updates the ids and locations after insertion
+        candidate.insertParagraph(rightParagraph, sectionId, paragraphPosition + 1);
+        String rightParagraphId = rightParagraph.getParagraphID();
+        commit(candidate);
+        return rightParagraphId;
+    }
+
+    // merges two neighboring paragraphs in reading order
+    public void mergeParagraphs(String firstParagraphId, String secondParagraphId) {
+        editDocument(tree -> {
+            int firstHash = requireParagraphSeparator(firstParagraphId);
+            int secondHash = requireParagraphSeparator(secondParagraphId);
+            String firstSectionId = firstParagraphId.substring(0, firstHash);
+            String secondSectionId = secondParagraphId.substring(0, secondHash);
+            int firstPosition = parseParagraphPosition(firstParagraphId, firstHash);
+            int secondPosition = parseParagraphPosition(secondParagraphId, secondHash);
+            if (!firstSectionId.equals(secondSectionId)
+                    || secondPosition != firstPosition + 1) {
+                throw new IllegalArgumentException(
+                        "Paragraphs must be neighbors in the same section.");
+            }
+
+            Paragraph first = requireParagraph(tree, firstParagraphId);
+            Paragraph second = requireParagraph(tree, secondParagraphId);
+            List<StyledText> combined = styledText(first.getText());
+            combined.addAll(styledText(second.getText()));
+            first.setText(encodeStyled(combined));
+
+            // removal reuses elias's id and location updates
+            tree.removeParagraph(secondParagraphId);
+        });
+    }
+
     // future multi-paragraph operations use one copied tree and one history item
     void editDocument(Consumer<SectionTree> change) {
         if (change == null) {
@@ -196,6 +246,21 @@ public final class TextEditService {
     private static Paragraph requireParagraph(SectionTree tree, String paragraphId) {
         return tree.findParagraph(paragraphId).orElseThrow(
                 () -> new IllegalArgumentException("No paragraph with ID '" + paragraphId + "'"));
+    }
+
+    private static int requireParagraphSeparator(String paragraphId) {
+        if (paragraphId == null || paragraphId.lastIndexOf('#') < 1) {
+            throw new IllegalArgumentException("Invalid paragraph ID '" + paragraphId + "'");
+        }
+        return paragraphId.lastIndexOf('#');
+    }
+
+    private static int parseParagraphPosition(String paragraphId, int hash) {
+        try {
+            return Integer.parseInt(paragraphId.substring(hash + 1));
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid paragraph ID '" + paragraphId + "'", e);
+        }
     }
 
     /** Reverses the most recent document edit, if one is available. */
