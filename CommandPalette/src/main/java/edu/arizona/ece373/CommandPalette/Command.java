@@ -19,7 +19,7 @@ public class Command{
     // Holds arguments
     protected Map<String, String> arguments;
 
-    public Command(int index, String name, String uncompiledContents, String arguments){
+    public Command(int index, String name, String uncompiledContents, Map<String, String> arguments){
         this.index = index;
         this.name = name;
         this.uncompiledContents = uncompiledContents;
