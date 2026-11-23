@@ -4,11 +4,20 @@ import java.util.Map;
 import java.util.Set;
 
 public class Command{
-    private int index;
-    private Pattern contents;
-    private String uncompiledContents;
-    private String name;
-    private String arguments;
+    // RegEx patterns used to parse Strings into their separate components
+    protected final Pattern splitSpaces = Pattern.compile(" ");
+    protected final Pattern splitCommas = Pattern.compile(","); 
+    protected final static Map<String, String> formatParser = Map.ofEntries(Map.entry("\\S+", "string"), Map.entry("\\d+", "digit"));
+    // Possibly depricated
+    protected int index;
+    // Contains the RegEx pattern used to discern proper command formatting
+    protected Pattern contents;
+    // Contains the String RegEx used to compile the contents Pattern
+    protected String uncompiledContents;
+    // Used to match a command to its editing action
+    protected String name;
+    // Holds arguments
+    protected Map<String, String> arguments;
 
     public Command(int index, String name, String uncompiledContents, String arguments){
         this.index = index;
