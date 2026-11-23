@@ -37,7 +37,41 @@ public class SectionTree {
 
     /** Appends a paragraph to the section with the given label. */
     public void addParagraph(Paragraph newParagraph, String sectionID) {
-        require(sectionID).appendParagraph(newParagraph);
+        Section section = require(sectionID);
+        section.appendParagraph(newParagraph);
+        recalculateLocations();
+    }
+
+    // inserts a paragraph at a one-based position inside one section
+    public void insertParagraph(Paragraph newParagraph, String sectionID, int index) {
+        require(sectionID).insertParagraph(index, newParagraph);
+        // follows elias's existing tree layout after the structure changes
+        recalculateLocations();
+    }
+
+    // removes a paragraph by id and returns it so another edit can reuse it
+    public Paragraph removeParagraph(String paragraphID) {
+        if (paragraphID == null) {
+            throw new IllegalArgumentException("Paragraph ID is required");
+        }
+        int hash = paragraphID.lastIndexOf('#');
+        if (hash < 1) {
+            throw new IllegalArgumentException("Invalid paragraph ID '" + paragraphID + "'");
+        }
+        Section section = require(paragraphID.substring(0, hash));
+        int index;
+        try {
+            index = Integer.parseInt(paragraphID.substring(hash + 1));
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid paragraph ID '" + paragraphID + "'", e);
+        }
+        if (index < 1 || index > section.countParagraphs()) {
+            throw new IllegalArgumentException("No paragraph with ID '" + paragraphID + "'");
+        }
+        // section handles id changes and the tree handles document locations
+        Paragraph removed = section.removeParagraph(index);
+        recalculateLocations();
+        return removed;
     }
 
     // ---- searching by hierarchical label ------------------------------------

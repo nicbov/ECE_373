@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
 /**
@@ -99,12 +100,20 @@ public final class TextEditService {
 
     /** Adds plain visible text as a paragraph and returns its hierarchical ID. */
     public String addParagraph(String sectionId, String text) {
+        SectionTree candidate = currentTreeCopy();
+        Section section = candidate.find(sectionId).orElseThrow(
+                () -> new IllegalArgumentException("No section with label '" + sectionId + "'"));
+        return insertParagraph(sectionId, section.countParagraphs() + 1, text);
+    }
+
+    // inserts at a one-based position and saves the complete change once
+    public String insertParagraph(String sectionId, int index, String text) {
         if (text == null) {
             throw new IllegalArgumentException("Paragraph text is required.");
         }
         SectionTree candidate = currentTreeCopy();
         Paragraph paragraph = new Paragraph(MarkupParser.escape(text));
-        candidate.addParagraph(paragraph, sectionId);
+        candidate.insertParagraph(paragraph, sectionId, index);
         String paragraphId = paragraph.getParagraphID();
         commit(candidate);
         return paragraphId;
@@ -112,14 +121,19 @@ public final class TextEditService {
 
     public void removeParagraph(String paragraphId) {
         SectionTree candidate = currentTreeCopy();
-        Paragraph paragraph = candidate.findParagraph(paragraphId).orElseThrow(
-                () -> new IllegalArgumentException("No paragraph with ID '" + paragraphId + "'"));
-        int separator = paragraphId.lastIndexOf('#');
-        String sectionId = paragraphId.substring(0, separator);
-        Section section = candidate.find(sectionId).orElseThrow(
-                () -> new IllegalArgumentException("No section with label '" + sectionId + "'"));
-        int index = section.getParagraphs().indexOf(paragraph);
-        section.removeParagraph(index + 1);
+        candidate.removeParagraph(paragraphId);
+        commit(candidate);
+    }
+
+    // future multi-paragraph operations use one copied tree and one history item
+    void editDocument(Consumer<SectionTree> change) {
+        if (change == null) {
+            throw new IllegalArgumentException("Document change is required.");
+        }
+        // this keeps elias's copy then validate then save flow in one place
+        SectionTree candidate = currentTreeCopy();
+        // nothing reaches the real document if any part of this change fails
+        change.accept(candidate);
         commit(candidate);
     }
 
