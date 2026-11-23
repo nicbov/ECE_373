@@ -1,3 +1,17 @@
+# Maven build output
+**/target/
+
+# IDE metadata
+.idea/
+.vscode/
+*.iml
+
+# macOS metadata
+.DS_Store
+
+# Local notes and context documents
+*.md
+
+# Branch specific testing
 CommandPalette/pom.xml
 CommandPalette/target
-.vscode
