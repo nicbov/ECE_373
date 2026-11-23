@@ -54,10 +54,18 @@ public class Section {
     }
 
     public void appendParagraph(Paragraph newParagraph) {
+        // keeps elias's append behavior while sharing the new position logic
+        insertParagraph(paragraphs.size() + 1, newParagraph);
+    }
+
+    // inserts at a one-based position and updates every paragraph id
+    public void insertParagraph(int index, Paragraph newParagraph) {
         if (newParagraph == null) {
             throw new IllegalArgumentException("Paragraph cannot be null");
         }
-        paragraphs.add(newParagraph);
+        checkInsertIndex(index, paragraphs.size());
+        paragraphs.add(index - 1, newParagraph);
+        // uses elias's existing relabeling so later paragraph ids stay correct
         assignLabel(sectionID);
     }
 
@@ -146,6 +154,13 @@ public class Section {
     private static void checkIndex(int index, int size) {
         if (index < 1 || index > size) {
             throw new IndexOutOfBoundsException("Index " + index + " out of range 1.." + size);
+        }
+    }
+
+    private static void checkInsertIndex(int index, int size) {
+        if (index < 1 || index > size + 1) {
+            throw new IndexOutOfBoundsException(
+                    "Index " + index + " out of range 1.." + (size + 1));
         }
     }
 
