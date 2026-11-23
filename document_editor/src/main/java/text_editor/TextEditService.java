@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
+import presentation.DocumentReadView;
 
 /**
  * Coordinates document edits, persistence, the section tree, and edit history.
@@ -231,6 +232,42 @@ public final class TextEditService {
         });
     }
 
+    // replaces every search result on one copied tree
+    void replaceMatches(List<SearchMatch> matches, String replacement) {
+        if (matches == null || replacement == null) {
+            throw new IllegalArgumentException("Matches and replacement text are required.");
+        }
+        if (matches.isEmpty()) {
+            return;
+        }
+
+        editDocument(tree -> {
+            // working backward keeps earlier match positions from changing
+            for (int i = matches.size() - 1; i >= 0; i--) {
+                SearchMatch match = matches.get(i);
+
+                // titles live on sections while normal text lives in paragraphs
+                if (match.blockKind() == DocumentReadView.Kind.TITLE) {
+                    Section section = tree.find(match.blockId()).orElseThrow(
+                            () -> new IllegalArgumentException(
+                                    "No section with label '" + match.blockId() + "'"));
+                    section.setName(replaceVisible(
+                            section.getName(),
+                            match.startIndex(),
+                            match.endIndex(),
+                            replacement));
+                } else {
+                    Paragraph paragraph = requireParagraph(tree, match.blockId());
+                    paragraph.setText(replaceVisible(
+                            paragraph.getText(),
+                            match.startIndex(),
+                            match.endIndex(),
+                            replacement));
+                }
+            }
+        });
+    }
+
     // future multi-paragraph operations use one copied tree and one history item
     void editDocument(Consumer<SectionTree> change) {
         if (change == null) {
@@ -351,14 +388,21 @@ public final class TextEditService {
     }
 
     private static List<StyledText> styledText(String raw) {
+        // each list item stores visible text and the formatting around it
         List<StyledText> runs = new ArrayList<>();
+
+        // active holds the formatting currently applied while reading tags
         Map<TagType, String> active = new EnumMap<>(TagType.class);
+
+        // frames remembers the older value when formatting tags are nested
         Deque<StyleFrame> frames = new ArrayDeque<>();
         for (Token token : MarkupParser.parse(raw)) {
             if (token.kind() == Token.Kind.OPEN) {
+                // an opening tag turns this style on for the following text
                 frames.push(new StyleFrame(token.tag(), active.get(token.tag())));
                 active.put(token.tag(), token.argument() == null ? "" : token.argument());
             } else if (token.kind() == Token.Kind.CLOSE) {
+                // a closing tag restores the style from before it opened
                 StyleFrame frame = frames.pop();
                 if (frame.previous() == null) {
                     active.remove(frame.type());
@@ -366,6 +410,7 @@ public final class TextEditService {
                     active.put(frame.type(), frame.previous());
                 }
             } else if (!token.visible().isEmpty()) {
+                // copyof keeps later tag changes from changing this text run
                 runs.add(new StyledText(token.visible(), Map.copyOf(active)));
             }
         }
@@ -384,6 +429,8 @@ public final class TextEditService {
             List<StyledText> runs, int start, int end) {
         List<StyledText> result = new ArrayList<>();
         int position = 0;
+
+        // only copy the part of each run that overlaps the requested range
         for (StyledText run : runs) {
             int runEnd = position + run.text().length();
             int localStart = Math.max(0, start - position);
@@ -399,6 +446,7 @@ public final class TextEditService {
 
     private static List<StyledText> removeStyled(
             List<StyledText> runs, int start, int end) {
+        // keep everything before and after the removed range
         List<StyledText> result = sliceStyled(runs, 0, start);
         result.addAll(sliceStyled(runs, end, styledLength(runs)));
         return result;
@@ -406,6 +454,7 @@ public final class TextEditService {
 
     private static List<StyledText> insertStyled(
             List<StyledText> runs, int position, List<StyledText> inserted) {
+        // place the inserted runs between the two original sides
         List<StyledText> result = sliceStyled(runs, 0, position);
         result.addAll(inserted);
         result.addAll(sliceStyled(runs, position, styledLength(runs)));
@@ -413,14 +462,26 @@ public final class TextEditService {
     }
 
     private static String encodeStyled(List<StyledText> runs) {
+        // this turns the simple run list back into elias's stored tags
         StringBuilder raw = new StringBuilder();
-        for (StyledText run : runs) {
+        int index = 0;
+        while (index < runs.size()) {
+            StyledText run = runs.get(index);
             Map<TagType, String> style = new EnumMap<>(TagType.class);
             style.putAll(run.style());
+
+            // neighboring pieces with the same style can share one set of tags
+            StringBuilder visible = new StringBuilder(run.text());
+            index++;
+            while (index < runs.size() && runs.get(index).style().equals(run.style())) {
+                visible.append(runs.get(index).text());
+                index++;
+            }
+
             for (Map.Entry<TagType, String> entry : style.entrySet()) {
                 raw.append(entry.getKey().openText(entry.getValue()));
             }
-            raw.append(MarkupParser.escape(run.text()));
+            raw.append(MarkupParser.escape(visible.toString()));
             TagType[] types = style.keySet().toArray(new TagType[0]);
             for (int i = types.length - 1; i >= 0; i--) {
                 raw.append(types[i].closeText());
@@ -506,9 +567,18 @@ public final class TextEditService {
     }
 
     private static String replaceVisible(String raw, int start, int end, String text) {
-        // removal validates the complete range before insertion happens
-        String withoutRange = removeVisible(raw, start, end);
-        return insertVisible(withoutRange, start, text);
+        List<StyledText> runs = styledText(raw);
+        checkRange(start, end, styledLength(runs));
+
+        // the new text keeps the style at the start of the selected range
+        List<StyledText> selectedStart = sliceStyled(runs, start, start + 1);
+        List<StyledText> replacement = text.isEmpty()
+                ? List.of()
+                : List.of(new StyledText(text, selectedStart.get(0).style()));
+
+        // remove and insert happen in memory before anything is saved
+        List<StyledText> withoutRange = removeStyled(runs, start, end);
+        return encodeStyled(insertStyled(withoutRange, start, replacement));
     }
 
     private static Patch createPatch(String before, String after) {
