@@ -1,8 +1,13 @@
 package text_editor;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Deque;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
@@ -14,6 +19,10 @@ import java.util.function.UnaryOperator;
 public final class TextEditService {
 
     private record Patch(int offset, String expected, String replacement) { }
+
+    private record StyleFrame(TagType type, String previous) { }
+
+    private record StyledText(String text, Map<TagType, String> style) { }
 
     private final Document document;
     private final FormatEditor formatEditor;
@@ -125,6 +134,53 @@ public final class TextEditService {
         commit(candidate);
     }
 
+    // moves a visible range using positions from before the edit begins
+    public void moveText(
+            String sourceParagraphId,
+            int start,
+            int end,
+            String destinationParagraphId,
+            int destinationPosition) {
+        editDocument(tree -> {
+            Paragraph source = requireParagraph(tree, sourceParagraphId);
+            Paragraph destination = requireParagraph(tree, destinationParagraphId);
+            List<StyledText> sourceRuns = styledText(source.getText());
+            int sourceLength = styledLength(sourceRuns);
+            checkRange(start, end, sourceLength);
+
+            // the selected runs carry their formatting to the new position
+            List<StyledText> moved = sliceStyled(sourceRuns, start, end);
+            if (source == destination) {
+                if (destinationPosition < 0 || destinationPosition > sourceLength) {
+                    throw invalidPosition(destinationPosition, sourceLength);
+                }
+                if (destinationPosition > start && destinationPosition < end) {
+                    throw new IllegalArgumentException(
+                            "Destination position cannot be inside the moved range.");
+                }
+                if (destinationPosition == start || destinationPosition == end) {
+                    return;
+                }
+                int adjustedPosition = destinationPosition > end
+                        ? destinationPosition - (end - start)
+                        : destinationPosition;
+                List<StyledText> remaining = removeStyled(sourceRuns, start, end);
+                source.setText(encodeStyled(insertStyled(
+                        remaining, adjustedPosition, moved)));
+                return;
+            }
+
+            List<StyledText> destinationRuns = styledText(destination.getText());
+            int destinationLength = styledLength(destinationRuns);
+            if (destinationPosition < 0 || destinationPosition > destinationLength) {
+                throw invalidPosition(destinationPosition, destinationLength);
+            }
+            source.setText(encodeStyled(removeStyled(sourceRuns, start, end)));
+            destination.setText(encodeStyled(insertStyled(
+                    destinationRuns, destinationPosition, moved)));
+        });
+    }
+
     // future multi-paragraph operations use one copied tree and one history item
     void editDocument(Consumer<SectionTree> change) {
         if (change == null) {
@@ -135,6 +191,11 @@ public final class TextEditService {
         // nothing reaches the real document if any part of this change fails
         change.accept(candidate);
         commit(candidate);
+    }
+
+    private static Paragraph requireParagraph(SectionTree tree, String paragraphId) {
+        return tree.findParagraph(paragraphId).orElseThrow(
+                () -> new IllegalArgumentException("No paragraph with ID '" + paragraphId + "'"));
     }
 
     /** Reverses the most recent document edit, if one is available. */
@@ -222,6 +283,97 @@ public final class TextEditService {
         } catch (RuntimeException restoreFailure) {
             originalFailure.addSuppressed(restoreFailure);
         }
+    }
+
+    private static List<StyledText> styledText(String raw) {
+        List<StyledText> runs = new ArrayList<>();
+        Map<TagType, String> active = new EnumMap<>(TagType.class);
+        Deque<StyleFrame> frames = new ArrayDeque<>();
+        for (Token token : MarkupParser.parse(raw)) {
+            if (token.kind() == Token.Kind.OPEN) {
+                frames.push(new StyleFrame(token.tag(), active.get(token.tag())));
+                active.put(token.tag(), token.argument() == null ? "" : token.argument());
+            } else if (token.kind() == Token.Kind.CLOSE) {
+                StyleFrame frame = frames.pop();
+                if (frame.previous() == null) {
+                    active.remove(frame.type());
+                } else {
+                    active.put(frame.type(), frame.previous());
+                }
+            } else if (!token.visible().isEmpty()) {
+                runs.add(new StyledText(token.visible(), Map.copyOf(active)));
+            }
+        }
+        return runs;
+    }
+
+    private static int styledLength(List<StyledText> runs) {
+        int length = 0;
+        for (StyledText run : runs) {
+            length += run.text().length();
+        }
+        return length;
+    }
+
+    private static List<StyledText> sliceStyled(
+            List<StyledText> runs, int start, int end) {
+        List<StyledText> result = new ArrayList<>();
+        int position = 0;
+        for (StyledText run : runs) {
+            int runEnd = position + run.text().length();
+            int localStart = Math.max(0, start - position);
+            int localEnd = Math.min(run.text().length(), end - position);
+            if (localStart < localEnd) {
+                result.add(new StyledText(
+                        run.text().substring(localStart, localEnd), run.style()));
+            }
+            position = runEnd;
+        }
+        return result;
+    }
+
+    private static List<StyledText> removeStyled(
+            List<StyledText> runs, int start, int end) {
+        List<StyledText> result = sliceStyled(runs, 0, start);
+        result.addAll(sliceStyled(runs, end, styledLength(runs)));
+        return result;
+    }
+
+    private static List<StyledText> insertStyled(
+            List<StyledText> runs, int position, List<StyledText> inserted) {
+        List<StyledText> result = sliceStyled(runs, 0, position);
+        result.addAll(inserted);
+        result.addAll(sliceStyled(runs, position, styledLength(runs)));
+        return result;
+    }
+
+    private static String encodeStyled(List<StyledText> runs) {
+        StringBuilder raw = new StringBuilder();
+        for (StyledText run : runs) {
+            Map<TagType, String> style = new EnumMap<>(TagType.class);
+            style.putAll(run.style());
+            for (Map.Entry<TagType, String> entry : style.entrySet()) {
+                raw.append(entry.getKey().openText(entry.getValue()));
+            }
+            raw.append(MarkupParser.escape(run.text()));
+            TagType[] types = style.keySet().toArray(new TagType[0]);
+            for (int i = types.length - 1; i >= 0; i--) {
+                raw.append(types[i].closeText());
+            }
+        }
+        return raw.toString();
+    }
+
+    private static void checkRange(int start, int end, int length) {
+        if (start < 0 || end > length || start >= end) {
+            throw new IllegalArgumentException(
+                    "Range [" + start + "," + end + ") is outside 0.." + length);
+        }
+    }
+
+    private static IllegalArgumentException invalidPosition(int position, int length) {
+        return new IllegalArgumentException(
+                "Destination position " + position + " is outside 0.." + length);
     }
 
     private static String insertVisible(String raw, int position, String text) {
