@@ -1,5 +1,7 @@
 package edu.arizona.ece373.CommandPalette;
 import java.util.regex.*;
+import java.util.Map;
+import java.util.Set;
 
 public class Command{
     private int index;
