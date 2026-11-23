@@ -1,5 +1,5 @@
 package edu.arizona.ece373.CommandPalette;
-
+import java.util.regex.*;
 import java.util.Map;
 
 public class Macro extends Command{
