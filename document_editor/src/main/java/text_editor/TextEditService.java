@@ -29,7 +29,7 @@ public final class TextEditService {
         this.formatEditor = formatEditor;
     }
 
-    /** inserts visible text using formatting active at the raw insertion point */
+    // inserts visible text using formatting active at the raw insertion point
     public void addText(String paragraphId, int position, String text) {
         if (text == null) {
             throw new IllegalArgumentException("Text is required.");
@@ -45,12 +45,25 @@ public final class TextEditService {
         editParagraph(paragraphId, raw -> removeVisible(raw, start, end));
     }
 
-    /** replaces one visible range as one saved and undoable edit */
+    // replaces one visible range as one saved and undoable edit
     public void replaceText(String paragraphId, int start, int end, String text) {
         if (text == null) {
             throw new IllegalArgumentException("Text is required.");
         }
         editParagraph(paragraphId, raw -> replaceVisible(raw, start, end, text));
+    }
+
+    // replaces one visible range in a section title
+    public void replaceSectionTitle(
+            String sectionId, int start, int end, String text) {
+        if (text == null) {
+            throw new IllegalArgumentException("Text is required.");
+        }
+        SectionTree candidate = currentTreeCopy();
+        Section section = candidate.find(sectionId).orElseThrow(
+                () -> new IllegalArgumentException("No section with label '" + sectionId + "'"));
+        section.setName(replaceVisible(section.getName(), start, end, text));
+        commit(candidate);
     }
 
     public void addFormat(
