@@ -27,7 +27,7 @@ public class Command{
     }
 
     public Command(){
-        this(-1, "", "", "");
+        this(-1, "", "", Map.of("", ""));
     }
 
     public void CompileCommand(){
