@@ -46,7 +46,7 @@ public class Command{
         this.name = name;
     }
 
-    public void SetArguments(String arguments){
+    public void SetArguments(Map<String, String> arguments){
         this.arguments = arguments;
     }
 
@@ -62,12 +62,41 @@ public class Command{
         return name;
     }
 
-    public String GetArguments(){
-        return arguments;
+    public Set<String> GetArguments(){
+        return arguments.keySet();
+    }
+
+    public boolean CheckValid(String input){
+        if(contents == null){
+            return false;
+        }
+        Matcher m = contents.matcher(input);
+        return m.matches();
+    }
+
+    public String[] SeparateString(String input){
+        String [] Output = splitSpaces.split(input);
+        for(String i : Output){
+            i = splitCommas.split(i)[0];
+        }
+        return Output;
     }
 
     public String GetFormat(){
-        throw new UnsupportedOperationException();
+        String returnVal = "";
+        String[] rawFormat = SeparateString(uncompiledContents);
+        Set<String> varNames = arguments.keySet();
+        int index = 0;
+        for(int i = 0; i < rawFormat.length; i++){
+            if(i == 0){
+                returnVal += rawFormat[i];
+            }
+            else{
+                returnVal += " " + [index] + '[' + formatParser.get(rawFormat[i]) + ']';
+                index++;
+            }
+        }
+        return returnVal;
     }
 
 }
