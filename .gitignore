@@ -1,7 +1,5 @@
 # Maven build output
 **/target/
-CommandPalette/pom.xml
-CommandPalette/target
 
 # IDE metadata
 .idea/
@@ -13,3 +11,7 @@ CommandPalette/target
 
 # Local notes and context documents
 *.md
+
+# Branch specific testing
+CommandPalette/pom.xml
+CommandPalette/target
