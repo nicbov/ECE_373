@@ -1,5 +1,6 @@
 package CommandPalette;
 import java.util.regex.*;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -9,7 +10,7 @@ public class Command{
     protected final Pattern splitCommas = Pattern.compile(","); 
     protected final static Map<String, String> formatParser = Map.ofEntries(Map.entry("\\S+", "string"), Map.entry("\\d+", "number"));
     protected final static Map<String, String> typeMapping = Map.ofEntries(Map.entry("number", "\\d+"), Map.entry("string", "\\S+"));
-    // Possibly depricated
+    // Contains number of expected arguments for string parsing
     protected int argCount;
     // Contains the RegEx pattern used to discern proper command formatting
     protected Pattern contents;
@@ -18,17 +19,17 @@ public class Command{
     // Used to match a command to its editing action
     protected String name;
     // Holds arguments in <name, type> format
-    protected Map<String, String> arguments;
+    protected LinkedHashMap<String, String> arguments;
 
     public Command(int argCount, String name, String uncompiledContents, Map<String, String> arguments){
         this.argCount = argCount;
         this.name = name;
         this.uncompiledContents = uncompiledContents;
-        this.arguments = arguments;
+        this.arguments = new LinkedHashMap<>(arguments);
     }
 
     public Command(){
-        this(-1, "", "", Map.of("", ""));
+        this(-1, "", "", Map.ofEntries(Map.entry("", "")));
     }
 
     public void CompileCommand(){
@@ -48,7 +49,7 @@ public class Command{
     }
 
     public void SetArguments(Map<String, String> arguments){
-        this.arguments = arguments;
+        this.arguments = new LinkedHashMap<>(arguments);
     }
 
     public int GetArgCount(){
