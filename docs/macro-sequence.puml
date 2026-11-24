@@ -1,0 +1,25 @@
+@startuml
+actor User
+participant CommandPalette
+participant Macro
+participant EditorApplication
+participant TextEditService
+participant StackHistoryService
+
+User -> CommandPalette : replay macro
+CommandPalette -> EditorApplication : beginEditGroup
+CommandPalette -> Macro : ParseMacro
+loop each expanded command
+  CommandPalette -> EditorApplication : executeCommand
+  EditorApplication -> TextEditService : edit
+  TextEditService -> TextEditService : save without history entry
+end
+alt every command succeeds
+  CommandPalette -> EditorApplication : endEditGroup
+  EditorApplication -> TextEditService : record net change
+  TextEditService -> StackHistoryService : one history entry
+else any command fails
+  CommandPalette -> EditorApplication : abortEditGroup
+  EditorApplication -> TextEditService : restore starting document
+end
+@enduml

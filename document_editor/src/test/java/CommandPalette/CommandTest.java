@@ -3,7 +3,6 @@ package CommandPalette;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import java.util.Map;
 import org.junit.jupiter.api.Test;
 import java.util.Set;
 
@@ -21,7 +20,8 @@ class CommandTest {
 
     @Test
     void CommandConstruction(){
-        Command test = new Command(1, "Add", "Add \\d+, \\S+", Map.ofEntries(Map.entry("location", "number"), Map.entry("text", "string")));
+        Command test = new Command(1, "Add", "Add \\d+, \\S+",
+                new String[][] {{"location", "number"}, {"text", "string"}});
         Set<String> expected = Set.of("location", "text");
         assertEquals(1, test.GetArgCount());
         assertEquals("Add", test.GetName());
@@ -31,28 +31,32 @@ class CommandTest {
 
     @Test
     void CommandValidates(){
-        Command test = new Command(1, "Add", "Add \\d+, \\S+", Map.ofEntries(Map.entry("location", "\\d+"), Map.entry("text", "\\S+")));
+        Command test = new Command(1, "Add", "Add \\d+, \\S+",
+                new String[][] {{"location", "\\d+"}, {"text", "\\S+"}});
         test.CompileCommand();
         assertEquals(true, test.Validate());
     }
 
     @Test
     void CommandCheckValidTrue(){
-        Command test = new Command(1, "Add", "Add \\d+, \\S+", Map.ofEntries(Map.entry("location", "number"), Map.entry("text", "string")));
+        Command test = new Command(1, "Add", "Add \\d+, \\S+",
+                new String[][] {{"location", "number"}, {"text", "string"}});
         test.CompileCommand();
         assertEquals(true, test.CheckValid("Add 5, hello"));
     }
 
     @Test
     void CommandCheckValidFalse(){
-        Command test = new Command(1, "Add", "Add \\d+, \\S+", Map.ofEntries(Map.entry("location", "number"), Map.entry("text", "string")));
+        Command test = new Command(1, "Add", "Add \\d+, \\S+",
+                new String[][] {{"location", "number"}, {"text", "string"}});
         test.CompileCommand();
         assertEquals(false, test.CheckValid("Add apple, hello"));
     }
 
     @Test
     void CommandSeparateStringTrue(){
-        Command test = new Command(1, "Add", "Add \\d+, \\S+", Map.ofEntries(Map.entry("location", "number"), Map.entry("text", "string")));
+        Command test = new Command(1, "Add", "Add \\d+, \\S+",
+                new String[][] {{"location", "number"}, {"text", "string"}});
         test.CompileCommand();
         String[] expected = {"Add", "5", "hello"};
         String[] actual = test.SeparateString("Add 5, hello");
@@ -63,7 +67,8 @@ class CommandTest {
 
     @Test
     void CommandParseStringTrue(){
-        Command test = new Command(2, "Add", "Add \\d+, \\S+", Map.ofEntries(Map.entry("location", "number"), Map.entry("text", "string")));
+        Command test = new Command(2, "Add", "Add \\d+, \\S+",
+                new String[][] {{"location", "number"}, {"text", "string"}});
         test.CompileCommand();
         String[][] expected = new String[2][3];
         expected[0][0] = "Add";
@@ -86,7 +91,13 @@ class CommandTest {
 
     @Test
     void CommandParseStringTwo(){
-        Command test = new Command(4, "Test", "Test \\d+, \\S+, \\S+, \\S+", Map.ofEntries(Map.entry("location", "number"), Map.entry("text", "string"), Map.entry("test2", "string"), Map.entry("test3", "string")));
+        Command test = new Command(4, "Test", "Test \\d+, \\S+, \\S+, \\S+",
+                new String[][] {
+                    {"location", "number"},
+                    {"text", "string"},
+                    {"test2", "string"},
+                    {"test3", "string"}
+                });
         test.CompileCommand();
         String[][] expected = new String[2][5];
         expected[0][0] = "Test";

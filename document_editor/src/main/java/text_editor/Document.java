@@ -5,8 +5,8 @@ import java.time.Instant;
 
 /**
  * Metadata for one document. Each document is backed by two files:
- *   1. the document file  (<name>.doc)     - the words plus formatting tags
- *   2. the history file   (<name>.history) - queue of every edit made
+ *   1. the document file  ({@code <name>.doc})     - the words plus formatting tags
+ *   2. the history file   ({@code <name>.history}) - queue of every edit made
  */
 public class Document {
 
@@ -22,6 +22,7 @@ public class Document {
     private final DocumentFileService fileService;
     private final StackHistoryService historyService;
     private final SectionTree sectionTree; // exactly one per document, never replaced
+    private String editGroupStart;
 
     /** Creates a brand new document and both of its files in the given folder. */
     public static Document create(String name, Path directory) {
@@ -77,6 +78,19 @@ public class Document {
 
     /** The document's one and only section tree. It always exists and cannot be replaced. */
     public SectionTree getSectionTree() { return sectionTree; }
+
+    boolean isEditGroupActive() { return editGroupStart != null; }
+
+    String getEditGroupStart() { return editGroupStart; }
+
+    void beginEditGroup(String snapshot) {
+        if (editGroupStart != null) {
+            throw new IllegalStateException("An edit group is already active.");
+        }
+        editGroupStart = snapshot;
+    }
+
+    void clearEditGroup() { editGroupStart = null; }
 
     @Override
     public String toString() {

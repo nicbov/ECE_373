@@ -5,6 +5,17 @@ import java.util.List;
 
 /** Minimizes the total squared unused width across all lines. */
 public final class BalancedLineBreaker implements LineBreaker {
+    /** Creates a balanced line breaker. */
+    public BalancedLineBreaker() {}
+
+    /**
+     * Wraps words while minimizing total squared unused line width.
+     *
+     * @param words printable words to wrap
+     * @param width maximum line width
+     * @return balanced wrapped lines
+     * @throws IllegalArgumentException if the width is invalid or a word is too long
+     */
     @Override
     public List<String> wrap(List<String> words, int width) {
         words = List.copyOf(words);

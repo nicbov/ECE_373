@@ -7,8 +7,8 @@ import java.util.List;
  * Safely walks raw document text and splits it into tokens.
  *
  * Rules:
- *   "<<"          is a literal "<"        "**"          is a literal "*"
- *   "<code*"      opens a tag             "*code>"      closes a tag
+ *   {@code "<<"} is a literal less-than, {@code "**"} is a literal star
+ *   {@code <code*} opens a tag, {@code *code>} closes a tag
  * Tags must nest properly. Anything malformed throws IllegalArgumentException.
  */
 public final class MarkupParser {
@@ -111,7 +111,7 @@ public final class MarkupParser {
         return found;
     }
 
-    /** Makes plain text safe to store: "<" becomes "<<" and "*" becomes "**". */
+    /** Makes plain text safe to store: {@code "<"} becomes {@code "<<"} and {@code "*"} becomes {@code "**"}. */
     public static String escape(String visible) {
         return visible.replace("<", "<<").replace("*", "**");
     }

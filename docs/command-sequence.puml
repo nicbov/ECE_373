@@ -1,0 +1,19 @@
+@startuml
+actor User
+participant Main
+participant CommandPalette
+participant EditorApplication
+participant TextEditService
+participant StackHistoryService
+
+User -> Main : enter command
+Main -> EditorApplication : executeLine
+EditorApplication -> CommandPalette : ReadInput
+CommandPalette -> CommandPalette : validate and parse
+CommandPalette -> EditorApplication : executeCommand
+EditorApplication -> TextEditService : requested edit
+TextEditService -> TextEditService : copy validate and save
+TextEditService -> StackHistoryService : record edit
+EditorApplication -> CommandPalette : Print result
+CommandPalette --> User : output
+@enduml

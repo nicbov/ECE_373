@@ -86,6 +86,22 @@ public final class TextEditService {
         editParagraph(paragraphId, raw -> formatEditor.removeFormat(raw, start, end, type));
     }
 
+    /** Adds formatting to a visible range in a section title. */
+    public void addSectionTitleFormat(
+            String sectionId, int start, int end, TagType type, String argument) {
+        editSectionTitle(
+                sectionId,
+                raw -> formatEditor.addFormat(raw, start, end, type, argument));
+    }
+
+    /** Removes formatting from a visible range in a section title. */
+    public void removeSectionTitleFormat(
+            String sectionId, int start, int end, TagType type) {
+        editSectionTitle(
+                sectionId,
+                raw -> formatEditor.removeFormat(raw, start, end, type));
+    }
+
     /** Adds a top-level section and returns its hierarchical label. */
     public String addSection(String name) {
         SectionTree candidate = currentTreeCopy();
@@ -105,6 +121,13 @@ public final class TextEditService {
     public void removeSection(String sectionId) {
         SectionTree candidate = currentTreeCopy();
         candidate.removeSection(sectionId);
+        commit(candidate);
+    }
+
+    /** Moves a section and its complete subtree. */
+    public void moveSection(String sourceId, String destinationParentId, int index) {
+        SectionTree candidate = currentTreeCopy();
+        candidate.moveSection(sourceId, destinationParentId, index);
         commit(candidate);
     }
 
@@ -326,11 +349,55 @@ public final class TextEditService {
         }
     }
 
+    /** Starts a group whose successful edits will share one history entry. */
+    public void beginEditGroup() {
+        document.beginEditGroup(DocumentMarkupCodec.encode(document.getSectionTree()));
+    }
+
+    /** Completes the active group and records its net change once. */
+    public void endEditGroup() {
+        if (!document.isEditGroupActive()) {
+            throw new IllegalStateException("No edit group is active.");
+        }
+        String before = document.getEditGroupStart();
+        String after = DocumentMarkupCodec.encode(document.getSectionTree());
+        document.clearEditGroup();
+        if (before.equals(after)) {
+            return;
+        }
+        try {
+            document.getHistoryService().record(new StackHistoryService.Edit(
+                    encodePatch(createPatch(before, after)),
+                    encodePatch(createPatch(after, before))));
+        } catch (RuntimeException historyFailure) {
+            restoreSnapshot(before);
+            throw historyFailure;
+        }
+    }
+
+    /** Cancels the active group and restores its starting state. */
+    public void abortEditGroup() {
+        if (!document.isEditGroupActive()) {
+            return;
+        }
+        String before = document.getEditGroupStart();
+        document.clearEditGroup();
+        restoreSnapshot(before);
+    }
+
     private void editParagraph(String paragraphId, UnaryOperator<String> change) {
         SectionTree candidate = currentTreeCopy();
         Paragraph paragraph = candidate.findParagraph(paragraphId).orElseThrow(
                 () -> new IllegalArgumentException("No paragraph with ID '" + paragraphId + "'"));
         paragraph.setText(change.apply(paragraph.getText()));
+        commit(candidate);
+    }
+
+    private void editSectionTitle(String sectionId, UnaryOperator<String> change) {
+        SectionTree candidate = currentTreeCopy();
+        Section section = candidate.find(sectionId).orElseThrow(
+                () -> new IllegalArgumentException("No section with label '" + sectionId + "'"));
+        section.setName(change.apply(section.getName()));
         commit(candidate);
     }
 
@@ -346,6 +413,11 @@ public final class TextEditService {
         }
         SectionTree validated = DocumentMarkupCodec.decode(after);
         document.getFileService().save(after);
+        if (document.isEditGroupActive()) {
+            document.getSectionTree().replaceWith(validated);
+            document.touch();
+            return;
+        }
         try {
             document.getHistoryService().record(new StackHistoryService.Edit(
                     encodePatch(createPatch(before, after)),
@@ -355,6 +427,13 @@ public final class TextEditService {
             throw historyFailure;
         }
         document.getSectionTree().replaceWith(validated);
+        document.touch();
+    }
+
+    private void restoreSnapshot(String raw) {
+        SectionTree restored = DocumentMarkupCodec.decode(raw);
+        document.getFileService().save(raw);
+        document.getSectionTree().replaceWith(restored);
         document.touch();
     }
 

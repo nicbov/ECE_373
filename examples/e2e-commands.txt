@@ -1,0 +1,16 @@
+create e2e-demo
+add-section Main
+add-subsection 1, Details
+add-paragraph 1, hello
+insert 1#1, 5, -team
+format 1#1, 0, 5, B, -
+statistics
+find-word hello
+checkpoint-create saved
+replace-all-word hello, goodbye
+render-view marked
+render-breaker balanced
+render-width 40
+render
+undo
+checkpoint-preview saved

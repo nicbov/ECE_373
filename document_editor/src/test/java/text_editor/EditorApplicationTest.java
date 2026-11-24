@@ -3,6 +3,10 @@ package text_editor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import CommandPalette.CommandPalette;
+import CommandPalette.MacroDictionary;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -52,6 +56,109 @@ class EditorApplicationTest {
         assertTrue(application.findWholeWord("after").isEmpty());
     }
 
+    @Test
+    void parsedCommandsReachTheDocumentServices() {
+        EditorApplication application = new EditorApplication();
+        application.setDocumentDirectory(temporaryDirectory);
+
+        application.executeLine("create command-connected");
+        application.executeLine("add-section Main");
+        application.executeLine("add-paragraph 1, hello");
+        application.executeLine("insert 1#1, 5, -team");
+        application.executeLine("checkpoint-create saved");
+        application.executeLine("replace 1#1, 0, 5, goodbye");
+
+        assertEquals("goodbye-team", visibleText(application, "1#1"));
+
+        application.executeLine("checkpoint-restore saved");
+
+        assertEquals("hello-team", visibleText(application, "1#1"));
+        assertEquals(
+                "Words: 2\nCharacters: 14\nParagraphs: 1",
+                application.showStatistics());
+    }
+
+    @Test
+    void scriptAndDirectCommandsProduceTheSameDocument() throws IOException {
+        EditorApplication application = new EditorApplication();
+        application.setDocumentDirectory(temporaryDirectory);
+
+        application.executeLine("create direct");
+        application.executeLine("add-section Main");
+        application.executeLine("add-paragraph 1, hello");
+        application.executeLine("insert 1#1, 5, -team");
+        String direct = DocumentMarkupCodec.encode(
+                application.currentDocument().getSectionTree());
+
+        Path script = temporaryDirectory.resolve("commands.txt");
+        Files.writeString(script, String.join("\n",
+                "create scripted",
+                "add-section Main",
+                "add-paragraph 1, hello",
+                "insert 1#1, 5, -team"));
+        application.executeScript(script);
+        String scripted = DocumentMarkupCodec.encode(
+                application.currentDocument().getSectionTree());
+
+        assertEquals(direct, scripted);
+    }
+
+    @Test
+    void recordedMacroReplaysAsOneUndoableEdit() {
+        MacroDictionary.ClearAll();
+        EditorApplication application = createApplication("macro");
+        application.executeLine("add-section Main");
+
+        application.executeLine("macro-start greeting");
+        application.executeLine("add-paragraph 1, hello");
+        application.executeLine("insert 1#1, 5, -team");
+        application.executeLine("macro-stop");
+        application.executeLine("undo");
+        application.executeLine("undo");
+        int versionBefore = application.currentDocument()
+                .getHistoryService()
+                .getCurrentVersion();
+
+        application.executeLine("greeting");
+
+        assertEquals("hello-team", visibleText(application, "1#1"));
+        assertEquals(
+                versionBefore + 1,
+                application.currentDocument().getHistoryService().getCurrentVersion());
+
+        application.executeLine("undo");
+        assertTrue(application.currentDocument()
+                .getSectionTree()
+                .findParagraph("1#1")
+                .isEmpty());
+    }
+
+    @Test
+    void failedMacroRestoresTheWholeDocument() {
+        MacroDictionary.ClearAll();
+        EditorApplication application = createApplication("macro-rollback");
+        application.executeLine("add-section Main");
+        String before = DocumentMarkupCodec.encode(
+                application.currentDocument().getSectionTree());
+        int versionBefore = application.currentDocument()
+                .getHistoryService()
+                .getCurrentVersion();
+        CommandPalette.LoadMacros(String.join("\n",
+                "~begin",
+                "broken",
+                "add-paragraph 1, hello",
+                "insert 9#1, 0, failure"));
+
+        application.executeLine("broken");
+
+        assertEquals(
+                before,
+                DocumentMarkupCodec.encode(application.currentDocument().getSectionTree()));
+        assertEquals(
+                versionBefore,
+                application.currentDocument().getHistoryService().getCurrentVersion());
+    }
+
     private EditorApplication createApplication(String name) {
         EditorApplication application = new EditorApplication();
         application.setDocumentDirectory(temporaryDirectory);
@@ -61,5 +168,13 @@ class EditorApplicationTest {
                 new GreedyLineBreaker(),
                 80));
         return application;
+    }
+
+    private String visibleText(EditorApplication application, String paragraphId) {
+        Paragraph paragraph = application.currentDocument()
+                .getSectionTree()
+                .findParagraph(paragraphId)
+                .orElseThrow();
+        return MarkupParser.visibleText(paragraph.getText());
     }
 }

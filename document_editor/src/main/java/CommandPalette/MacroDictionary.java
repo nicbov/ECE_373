@@ -1,65 +1,113 @@
 package CommandPalette;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.regex.*;
 
-public class MacroDictionary{
-    private static Map<String, Macro> registeredMacros;
-    private static Pattern macroStart = Pattern.compile("~begin");
-    private static Pattern macroName = Pattern.compile("Name:");
-    private static Pattern macroCommand = Pattern.compile(":");
+/**
+ * Stores the macros available to the command palette.
+ */
+public final class MacroDictionary {
+    private static final Map<String, Macro> registeredMacros = new LinkedHashMap<>();
 
-    public static boolean Contains(String name){
+    private MacroDictionary() { }
+
+    /**
+     * Reports whether a macro is registered.
+     *
+     * @param name macro name
+     * @return true when the macro exists
+     */
+    public static boolean Contains(String name) {
         return registeredMacros.containsKey(name);
     }
 
-    public static Macro Get(String name){
+    /**
+     * Returns a registered macro.
+     *
+     * @param name macro name
+     * @return matching macro or null
+     */
+    public static Macro Get(String name) {
         return registeredMacros.get(name);
     }
 
-    public static String ListCommandFormat(String name){
-        String returnVal = "";
-        returnVal += Get(name).GetFormat();
-        return returnVal;
+    /**
+     * Returns the invocation format for one macro.
+     *
+     * @param name macro name
+     * @return macro format
+     */
+    public static String ListCommandFormat(String name) {
+        Macro macro = Get(name);
+        return macro == null ? "" : macro.GetFormat();
     }
 
-    public static String ListAll(){
-        String returnVal = "";
-        for(Macro i : registeredMacros.values()){
-            returnVal += i.GetFormat() + '\n';
+    /**
+     * Lists every registered macro format.
+     *
+     * @return one format per line
+     */
+    public static String ListAll() {
+        StringBuilder formats = new StringBuilder();
+        for (Macro macro : registeredMacros.values()) {
+            if (formats.length() > 0) {
+                formats.append('\n');
+            }
+            formats.append(macro.GetFormat());
         }
-        return returnVal;
+        return formats.toString();
     }
 
-    public static void LoadMacros(String s){
-        String[] toLoad = macroStart.split(s);
-        for(String i : toLoad){
-            Macro m = new Macro();
-            m.ParseRecordData(i);
+    /**
+     * Loads all valid {@code ~begin} macro records from text.
+     *
+     * @param input serialized macro records
+     * @throws IllegalArgumentException if a macro record is invalid
+     */
+    public static void LoadMacros(String input) {
+        if (input == null || input.isBlank()) {
+            return;
+        }
+        for (String record : input.split("~begin")) {
+            if (record.isBlank()) {
+                continue;
+            }
+            Macro macro = new Macro();
+            macro.ParseRecordData(record);
+            if (!RegisterMacro(macro)) {
+                throw new IllegalArgumentException("Invalid macro record.");
+            }
         }
     }
 
-    public static boolean RegisterMacro(Macro m){
-        if(m.Validate()){
-            registeredMacros.put(m.name, m);
+    /**
+     * Registers a valid macro by name.
+     *
+     * @param macro macro to register
+     * @return true when registration succeeds
+     */
+    public static boolean RegisterMacro(Macro macro) {
+        if (macro != null && macro.Validate()) {
+            registeredMacros.put(macro.GetName(), macro);
             return true;
         }
-        else{
-            return false;
-        }
+        return false;
     }
 
-    public static boolean ClearMacro(String name){
-        registeredMacros.remove(name);
-        if(registeredMacros.get(name) != null){
-            return false;
-        }
-        else{
-            return true;
-        }
+    /**
+     * Removes one macro.
+     *
+     * @param name macro name
+     * @return true when a macro was removed
+     */
+    public static boolean ClearMacro(String name) {
+        return registeredMacros.remove(name) != null;
     }
 
-    public static void ClearAll(){
+    /**
+     * Removes all registered macros.
+     */
+    public static void ClearAll() {
         registeredMacros.clear();
     }
 }

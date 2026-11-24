@@ -1,120 +1,194 @@
 package CommandPalette;
-import java.util.regex.*;
+
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
-public class Macro extends Command{
-    private Command[] commandList = {};
-    private Pattern variableID = Pattern.compile("\\w+:[number|string]");
-    private Pattern variableDefine = Pattern.compile(":");
-    private Pattern repeatedCommandParsing = Pattern.compile("_\\d+");
-    private Pattern newline = Pattern.compile("\n");
-    private Pattern number = Pattern.compile("\\d+");
-    private Pattern string = Pattern.compile("\\w+");
-    private LinkedHashMap<String, Pattern> variableUse;
+/**
+ * Stores a named sequence of command lines that can accept ordered arguments.
+ */
+public class Macro extends Command {
+    private final List<String> commandLines = new ArrayList<>();
 
-    public String Serialize(){
-        throw new UnsupportedOperationException();
+    /**
+     * Creates an empty macro that can be populated from stored record data.
+     */
+    public Macro() {
+        super();
+        arguments.clear();
     }
 
-    public String GetFormat(){
-        throw new UnsupportedOperationException();
+    /**
+     * Creates a macro from its name, ordered arguments, and command lines.
+     *
+     * @param name macro name
+     * @param macroArguments ordered argument names and types
+     * @param lines command templates to replay
+     */
+    public Macro(String name, Map<String, String> macroArguments, List<String> lines) {
+        this();
+        this.name = name;
+        if (macroArguments != null) {
+            this.arguments.putAll(macroArguments);
+        }
+        if (lines != null) {
+            this.commandLines.addAll(lines);
+        }
     }
 
-    public void ParseRecordData(String input){
-        String[] lines = newline.split(input);
-        String[] macroDefinition = this.SeparateString(lines[0]);
-        name = macroDefinition[0];
-        for(String i : macroDefinition){
-            Matcher m = variableDefine.matcher(i);
-            if(m.matches()){
-                String[] argumentPotential = variableDefine.split(i);
-                arguments.put(argumentPotential[0], argumentPotential[1]);
+    /**
+     * Converts this macro to the text format accepted by the macro dictionary.
+     *
+     * @return serialized macro record
+     */
+    public String Serialize() {
+        StringBuilder output = new StringBuilder("~begin\n").append(GetFormat());
+        for (String line : commandLines) {
+            output.append('\n').append(line);
+        }
+        return output.toString();
+    }
+
+    /**
+     * Returns the macro name and ordered argument declarations.
+     *
+     * @return macro header
+     */
+    @Override
+    public String GetFormat() {
+        StringBuilder format = new StringBuilder(name == null ? "" : name);
+        for (Map.Entry<String, String> entry : arguments.entrySet()) {
+            format.append(' ')
+                    .append(entry.getKey())
+                    .append(':')
+                    .append(entry.getValue())
+                    .append(',');
+        }
+        if (!arguments.isEmpty()) {
+            format.setLength(format.length() - 1);
+        }
+        return format.toString();
+    }
+
+    /**
+     * Loads one macro record without its {@code ~begin} marker.
+     *
+     * @param input macro header followed by command lines
+     */
+    public void ParseRecordData(String input) {
+        reset();
+        if (input == null || input.isBlank()) {
+            return;
+        }
+
+        String[] lines = input.strip().split("\\R");
+        String[] header = SeparateString(lines[0].trim());
+        name = header.length == 0 ? "" : header[0];
+        for (int index = 1; index < header.length; index++) {
+            RegisterVariable(header[index]);
+        }
+        for (int index = 1; index < lines.length; index++) {
+            String line = lines[index].trim();
+            if (!line.isBlank()) {
+                commandLines.add(line);
             }
         }
-        commandList = new Command[lines.length];
-        for(int j = 1; j < lines.length; j++){
-            String[] command = SeparateString(lines[j]);
-            String commandName = command[0];
-            String commandContents = commandName;
-            Map<String, String> commandArgs = Map.of();
-            int argCount = 0;
-            for(int k = 1; k < command.length; k++){
-                argCount = k;
-                commandContents += " " + command[k] + ",";
-                if(arguments.containsKey(command[k])){
-                    commandArgs.put(command[k], arguments.get(command[k]));
-                }
-                else{
-                    Matcher m1 = number.matcher(command[k]);
-                    Matcher m2 = string.matcher(command[k]);
-                    if(m1.matches()){
-                        commandArgs.put(command[k], "number");
-                    }
-                    else{
-                        commandArgs.put(command[k], "string");
-                    }
-                }
+    }
+
+    /**
+     * Expands a macro invocation into normal parsed system commands.
+     *
+     * @param input invocation containing the macro name and values
+     * @return parsed commands in replay order
+     * @throws IllegalArgumentException if arguments or referenced commands are invalid
+     */
+    public String[][][] ParseMacro(String input) {
+        String[] values = SeparateString(input);
+        if (values.length != arguments.size() + 1 || !values[0].equals(name)) {
+            throw new IllegalArgumentException("Invalid macro arguments.");
+        }
+
+        Map<String, String> replacements = new LinkedHashMap<>();
+        int valueIndex = 1;
+        for (Map.Entry<String, String> argument : arguments.entrySet()) {
+            String value = values[valueIndex++];
+            if (argument.getValue().equals("number") && !value.matches("\\d+")) {
+                throw new IllegalArgumentException("Expected a number for " + argument.getKey());
             }
-            Command c = new Command(argCount, commandName, commandContents, commandArgs);
-            commandList[j - 1] = c;
+            replacements.put(argument.getKey(), value);
         }
+
+        String[][][] parsed = new String[commandLines.size()][][];
+        for (int index = 0; index < commandLines.size(); index++) {
+            String expanded = expand(commandLines.get(index), replacements);
+            String commandName = SeparateString(expanded)[0];
+            Command command = SystemDictionary.Get(commandName);
+            if (command == null) {
+                throw new IllegalArgumentException("Unknown macro command " + commandName);
+            }
+            parsed[index] = command.Parse(expanded);
+        }
+        return parsed;
     }
 
-    public String[][][] ParseMacro(String input){
-        throw new UnsupportedOperationException();
-    }
-
-    /*
-    @Override 
-    public boolean Validate(){
-        String ex = name;
-        Set<String> keys = arguments.keySet();
-        boolean selfValid;
-        for(String i : keys){
-            ex += " " + arguments.get(i) + ",";
-        }
-        ex = ex.substring(0, ex.length() - 1);
-        if(contents == null){
-            this.CompileCommand();
-        }
-        if(contents != null){
-            Matcher m = contents.matcher(ex);
-            selfValid = m.matches();
-        }
-        else{
-            selfValid = false;
-        }
-        if(selfValid){
-            for(String i : commandList){
-                String index = repeatedCommandParsing.split(i)[0];
-                String template = SystemDictionary.Get(index).GetUncompiledContents();
-                Pattern p = variableUse.get(i);
-                Matcher m = p.matcher(template);
-                if(!m.matches()){
-                    return false;
-                }
-        }
-        return true;
-        }
-        else{
+    /**
+     * Checks whether this macro has a usable name and command body.
+     *
+     * @return true when the macro can be registered
+     */
+    @Override
+    public boolean Validate() {
+        if (name == null || name.isBlank() || commandLines.isEmpty()) {
             return false;
         }
+        for (String line : commandLines) {
+            String[] parts = SeparateString(line);
+            if (parts.length == 0 || parts[0].isBlank()) {
+                return false;
+            }
+        }
+        return true;
     }
-        */
 
-    public boolean RegisterVariable(String input){
-        String[] parsed = variableDefine.split(input);
-        if(arguments.get(parsed[0]) != null){
+    /**
+     * Registers one argument declaration such as {@code location:number}.
+     *
+     * @param input argument declaration
+     * @return true when the declaration was added
+     * @throws IllegalArgumentException if the declaration is invalid
+     */
+    public boolean RegisterVariable(String input) {
+        if (input == null || !input.matches("\\w+:(number|string)")) {
+            throw new IllegalArgumentException("Invalid macro argument " + input);
+        }
+        String[] parsed = input.split(":", 2);
+        if (arguments.containsKey(parsed[0])) {
             return false;
         }
         arguments.put(parsed[0], parsed[1]);
         return true;
     }
 
-    public void reset(){
-        variableUse.clear();
-        commandList = new Command[0];
+    /**
+     * Clears all macro data.
+     */
+    public void reset() {
+        name = "";
+        arguments.clear();
+        commandLines.clear();
+    }
+
+    private String expand(String line, Map<String, String> replacements) {
+        String[] parts = SeparateString(line);
+        StringBuilder expanded = new StringBuilder(parts[0]);
+        for (int index = 1; index < parts.length; index++) {
+            expanded.append(' ')
+                    .append(replacements.getOrDefault(parts[index], parts[index]));
+            if (index < parts.length - 1) {
+                expanded.append(',');
+            }
+        }
+        return expanded.toString();
     }
 }

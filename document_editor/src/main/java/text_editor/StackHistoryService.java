@@ -18,10 +18,10 @@ import java.util.Optional;
  * file after every change, so history survives restarts.
  *
  * File format, one line per entry, oldest first:
- *   U<TAB>command<TAB>inverse   (edit that can be undone)
- *   R<TAB>command<TAB>inverse   (edit that can be redone, most recent undo last)
- *   C<TAB>n<TAB>name            (named checkpoint at version n, see below)
- *   C<TAB>n                     (legacy unnamed checkpoint; loads as "checkpoint-n")
+ *   {@code U} then tab then command then tab then inverse (edit that can be undone)
+ *   {@code R} then tab then command then tab then inverse (edit that can be redone)
+ *   {@code C} then tab then n then tab then name (named checkpoint at version n)
+ *   {@code C} then tab then n (legacy unnamed checkpoint; loads as checkpoint-n)
  *
  * A version is the number of edits applied: version 0 is the state before any
  * edit and version n is the state after the n-th queued edit (undo and redo

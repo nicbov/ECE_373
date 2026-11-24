@@ -43,13 +43,19 @@ public class Section {
     // ---- structure ----------------------------------------------------
 
     public void appendSection(Section newSection) {
+        insertSubSection(subSections.size() + 1, newSection);
+    }
+
+    /** Inserts a subsection at a one-based position. */
+    public void insertSubSection(int index, Section newSection) {
         if (newSection == null) {
             throw new IllegalArgumentException("Section cannot be null");
         }
         if (newSection == this || newSection.contains(this)) {
             throw new IllegalArgumentException("A section cannot be added inside itself");
         }
-        subSections.add(newSection);
+        checkInsertIndex(index, subSections.size());
+        subSections.add(index - 1, newSection);
         assignLabel(sectionID); // relabels the whole subtree; no-op ID if this is unattached
     }
 

@@ -5,6 +5,17 @@ import java.util.List;
 
 /** Packs as many complete words as possible onto each line. */
 public final class GreedyLineBreaker implements LineBreaker {
+    /** Creates a greedy line breaker. */
+    public GreedyLineBreaker() {}
+
+    /**
+     * Wraps words by filling each line in order.
+     *
+     * @param words printable words to wrap
+     * @param width maximum line width
+     * @return wrapped lines
+     * @throws IllegalArgumentException if the width is invalid or a word is too long
+     */
     @Override
     public List<String> wrap(List<String> words, int width) {
         LineBreaker.validate(words, width);

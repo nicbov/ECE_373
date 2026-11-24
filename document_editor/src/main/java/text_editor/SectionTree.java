@@ -96,7 +96,7 @@ public class SectionTree {
         return find(label).isPresent();
     }
 
-    /** Finds a paragraph by ID of the form "<sectionLabel>#<n>", e.g. "1/2#3". */
+    /** Finds a paragraph by ID of the form {@code <sectionLabel>#<n>}, e.g. {@code 1/2#3}. */
     public Optional<Paragraph> findParagraph(String paragraphID) {
         if (paragraphID == null) return Optional.empty();
         int hash = paragraphID.lastIndexOf('#');
@@ -153,6 +153,27 @@ public class SectionTree {
         }
         String parentLabel = label.substring(0, label.lastIndexOf('/'));
         return require(parentLabel).removeSubSection(path[path.length - 1]);
+    }
+
+    /** Moves a section and its subtree to a new parent and position. */
+    public void moveSection(String sourceLabel, String destinationParent, int index) {
+        Section source = require(sourceLabel);
+        Section parent = destinationParent.equals("root") ? null : require(destinationParent);
+        if (parent == source || source.contains(parent)) {
+            throw new IllegalArgumentException("A section cannot move inside itself.");
+        }
+        int destinationSize = parent == null ? mainSectionArray.size() : parent.countSubSections();
+        if (index < 1 || index > destinationSize + 1) {
+            throw new IllegalArgumentException("Invalid section destination position.");
+        }
+        removeSection(sourceLabel);
+        if (parent == null) {
+            mainSectionArray.add(Math.min(index, mainSectionArray.size() + 1) - 1, source);
+            relabelMain();
+        } else {
+            parent.insertSubSection(Math.min(index, parent.countSubSections() + 1), source);
+        }
+        recalculateLocations();
     }
 
     // ---- misc -------------------------------------------------------

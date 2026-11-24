@@ -1,0 +1,53 @@
+@startuml
+package CommandPalette {
+  class CommandPalette
+  class Command
+  class Macro
+  class SystemDictionary
+  class MacroDictionary
+}
+
+package text_editor {
+  class EditorApplication <<Facade>>
+  class DocumentEngine <<Singleton>>
+  class TextEditService
+  class CheckPointService
+  class SearchService
+  class SearchReplaceService
+  class StatisticsService
+  class SectionTreeReadView <<Adapter>>
+  class StackHistoryService
+}
+
+package presentation {
+  interface DocumentReadView
+  class RenderService
+  interface RenderingView <<Strategy>>
+  interface LineBreaker <<Strategy>>
+  class PlainTextView
+  class MarkedUpView
+  class GreedyLineBreaker
+  class BalancedLineBreaker
+}
+
+CommandPalette --> EditorApplication
+CommandPalette --> Command
+CommandPalette --> Macro
+EditorApplication --> DocumentEngine
+EditorApplication --> TextEditService
+EditorApplication --> CheckPointService
+EditorApplication --> SearchService
+EditorApplication --> SearchReplaceService
+EditorApplication --> StatisticsService
+EditorApplication --> RenderService
+TextEditService --> StackHistoryService
+EditorApplication --> SectionTreeReadView
+SectionTreeReadView ..|> DocumentReadView
+RenderService --> DocumentReadView
+RenderService --> RenderingView
+RenderService --> LineBreaker
+PlainTextView ..|> RenderingView
+MarkedUpView ..|> RenderingView
+GreedyLineBreaker ..|> LineBreaker
+BalancedLineBreaker ..|> LineBreaker
+@enduml

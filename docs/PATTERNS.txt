@@ -1,0 +1,20 @@
+DESIGN PATTERNS
+
+Singleton - creational
+DocumentEngine provides one shared application engine through getInstance
+
+Adapter - structural
+SectionTreeReadView adapts the document section tree to DocumentReadView
+Search statistics and rendering can use the same read only interface
+
+Strategy - behavioral
+RenderingView selects plain or marked output
+LineBreaker selects greedy or balanced wrapping
+RenderService uses either implementation through the shared interfaces
+
+Facade - structural
+EditorApplication gives the command layer one entry point for document
+editing history checkpoints search statistics and presentation
+
+The class named Command is a parser definition and is not claimed as the
+GoF Command pattern

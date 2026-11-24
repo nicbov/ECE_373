@@ -4,6 +4,15 @@ import java.util.List;
 
 /** Adds visible markers to styled word fragments. */
 public final class MarkedUpView implements RenderingView {
+    /** Creates a marked-up rendering view. */
+    public MarkedUpView() {}
+
+    /**
+     * Extracts words with visible markers for each text style.
+     *
+     * @param block block to convert
+     * @return words containing formatting markers
+     */
     @Override
     public List<String> words(DocumentReadView.Block block) {
         return WordTokens.words(block, MarkedUpView::mark);

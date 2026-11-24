@@ -3,8 +3,8 @@ package text_editor;
 /**
  * Every tag the document format knows about.
  *
- * Written as an opening tag  <code*  or  <code:argument*
- * and closed with            *code>
+ * Written as an opening tag {@code <code*} or {@code <code:argument*}
+ * and closed with {@code *code>}.
  * Formatting tags apply to text; structure tags mark sections and paragraphs.
  */
 public enum TagType {
@@ -44,7 +44,7 @@ public enum TagType {
         throw new IllegalArgumentException("Unknown tag code: '" + code + "'");
     }
 
-    /** Text of the opening tag, e.g. "<B*" or "<F:Arial*". */
+    /** Text of the opening tag, e.g. {@code <B*} or {@code <F:Arial*}. */
     public String openText(String argument) {
         return "<" + code + (takesArgument ? ":" + argument : "") + "*";
     }
