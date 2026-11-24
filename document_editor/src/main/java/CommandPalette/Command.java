@@ -36,7 +36,7 @@ public class Command{
     }
 
     public Command(){
-        // this(-1, "", "", Map.ofEntries(Map.entry("", "")));
+        // this(-1, "", "", ));
     }
 
     public void CompileCommand(){
