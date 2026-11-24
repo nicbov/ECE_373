@@ -1,7 +1,10 @@
 package CommandPalette;
 import java.util.regex.*;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 public class Command{
@@ -21,15 +24,19 @@ public class Command{
     // Holds arguments in <name, type> format
     protected LinkedHashMap<String, String> arguments;
 
-    public Command(int argCount, String name, String uncompiledContents, Map<String, String> arguments){
+    public Command(int argCount, String name, String uncompiledContents, String[][] arguments){
         this.argCount = argCount;
         this.name = name;
         this.uncompiledContents = uncompiledContents;
-        this.arguments = new LinkedHashMap<>(arguments);
+        LinkedHashMap<String,String> testing = new LinkedHashMap<>(); 
+        for(String[] i : arguments){
+            testing.put(i[0], i[1]);
+        }
+        this.arguments = new LinkedHashMap<>(testing);
     }
 
     public Command(){
-        this(-1, "", "", Map.ofEntries(Map.entry("", "")));
+        // this(-1, "", "", ));
     }
 
     public void CompileCommand(){
@@ -96,15 +103,18 @@ public class Command{
 
     public String[][] CommandParse(String input){
         String[][] Output = new String[2][argCount + 1];
-        String[] keys = SortKeys(arguments.keySet().toArray(), arguments.keySet());
+        // String[] keys = SortKeys(arguments.keySet().toArray(), arguments.keySet());
+        Set<String> keys = arguments.keySet();
+        Iterator<Entry<String,String>> keyIt = arguments.entrySet().iterator();
         if(CheckValid(input)){
             String[] splitString = SeparateString(input);
             Output[0][0] = splitString[0];
             for(int i = 1; i < splitString.length; i++){
                 Output[0][i] = splitString[i];
-                System.out.println(i + " " + keys[i - 1]);
-                System.out.println(arguments.get(keys[i - 1]) + " || ");
-                Output[1][i] = typeMapping.get(arguments.get(keys[i - 1]));
+                String next = keyIt.next().getValue();
+                System.out.println(i + " " + next);
+                System.out.println(next + " || ");
+                Output[1][i] = typeMapping.get(next);
             }
             return Output;
         }
@@ -121,6 +131,7 @@ public class Command{
         return Output;
     }
 
+    /*
     public boolean Validate(){
         String ex = name;
         for(String i : arguments.keySet()){
@@ -139,7 +150,7 @@ public class Command{
         else{
             return false;
         }
-    }
+    }*/
 
     public String GetFormat(){
         String returnVal = "";
