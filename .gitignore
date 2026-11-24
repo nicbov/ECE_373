@@ -15,3 +15,4 @@
 # Branch specific testing
 CommandPalette/pom.xml
 CommandPalette/target
+target/
