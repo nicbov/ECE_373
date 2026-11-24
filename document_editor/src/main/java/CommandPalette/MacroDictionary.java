@@ -31,10 +31,11 @@ public class MacroDictionary{
         return returnVal;
     }
 
-    public static boolean LoadMacros(String s){
+    public static void LoadMacros(String s){
         String[] toLoad = macroStart.split(s);
         for(String i : toLoad){
-
+            Macro m = new Macro();
+            m.ParseRecordData(i);
         }
     }
 
